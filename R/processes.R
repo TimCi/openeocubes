@@ -1273,7 +1273,7 @@ train_model <- Process$new(
       name = "labeled_polygons",
       description = "String containing the GeoJSON with Polygons. These contain class labels used to train the model.",
       schema = list(
-        type = "object",
+        type = "string",
         subtype = "GeoJSON"
       )
     ),
@@ -1293,6 +1293,7 @@ train_model <- Process$new(
   ),
   operation = function(data, model_type, labeled_polygons, hyperparameters = NULL, job)
   {
+    # show call stack for debugging
     message("train_model called...")
     message("\nCall parameters: ")
     message("data: ")
@@ -1311,10 +1312,10 @@ train_model <- Process$new(
 
       message("Training Polygons sucessfully loaded!\n")
     },
-    error = function(error)
+    error = function(err)
     {
       message("An Error occured!")
-      message(error)
+      message(err)
     })
 
     message("hyperparameters: ")
@@ -1330,8 +1331,66 @@ train_model <- Process$new(
       }
     }
 
+
+    tryCatch({
+      message("\nExtract features...: ")
+
+      # extract features from cube (reduce features to one per polygon)
+      features = gdalcubes::extract_geom(data, labeled_polygons, FUN = stats::median)
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(err)
+    })
+
+    # add FID for merge with 'features'
+    labeled_polygons$FID = rownames(labeled_polygons)
+
+    tryCatch({
+      message("\nMerge features with training data...")
+
+      training_df = merge(labeled_polygons, features, by = "FID")
+
+      message("Merging complete!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+    })
+
+
+
     if (model_type == "RF")
     {
+      # set seed for reproducibility
+      #TODO possibly remove
+      set.seed(100)
+
+      tryCatch({
+        message("\nSplit training Data...")
+
+        # make copy to filter out values not needed for training
+        training_df_filtered = training_df
+        training_df_filtered$time = NULL
+        training_df_filtered$geometry = NULL
+        training_df_filtered$FID = NULL
+
+        train_row_numbers = caret::createDataPartition(training_df$class, p=0.8, list=FALSE)
+        training_data = training_df[train_row_numbers,]
+        testing_data = training_df[-train_row_numbers,]
+
+        message("Data splitting completed!")
+      },
+      error = function(err)
+      {
+        message("An Error occured!")
+        message(toString(err))
+      })
+
+
+
 
     }
 
@@ -1339,7 +1398,7 @@ train_model <- Process$new(
     # for later return
     model = "test"
 
-    return(model)
+    return(training_df)
   }
 )
 
