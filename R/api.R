@@ -182,7 +182,7 @@ NULL
         },
         error = function(error)
         {
-          message('An Error Occurred')
+          message('An Error Occurred. Passed data was not of type "datacube".')
           message(error)
         },
         warning = function(warning) {
@@ -224,7 +224,7 @@ NULL
         },
         error = function(error)
         {
-          message('An Error Occurred')
+          message('An Error Occurred. Passed data was not of type "datacube".')
           message(error)
         },
         warning = function(warning) {
