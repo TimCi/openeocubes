@@ -1263,23 +1263,83 @@ train_model <- Process$new(
       )
     ),
     Parameter$new(
-      name = "bands",
-      description = "A list of band names.",
+      name = "model_type",
+      description = "Type of the model to be trained. Must be one of the following types: RF.",
       schema = list(
-        type = "array"
+        type = "string"
+      ),
+    ),
+    Parameter$new(
+      name = "labeled_polygons",
+      description = "String containing the GeoJSON with Polygons. These contain class labels used to train the model.",
+      schema = list(
+        type = "object",
+        subtype = "GeoJSON"
+      )
+    ),
+    Parameter$new(
+      name = "hyperparameters",
+      description = "List of Hyperparameters used for the model",
+      schema = list(
+        type = "list"
       ),
       optional = TRUE
     )
+
   ),
   returns = list(
     description = "The trained model.",
     schema = list(type = "object", subtype = "caret-ml-model")
   ),
-  operation = function(data, bands, job)
+  operation = function(data, model_type, labeled_polygons, hyperparameters = NULL, job)
   {
-    message("Test Train model")
-    x = 1
-    return(x)
+    message("train_model called...")
+    message("\nCall parameters: ")
+    message("data: ")
+    message(gdalcubes::as_json(data))
+    message("model_type: ")
+    message(model_type)
+
+    tryCatch({
+      message("\nlabeled_polygons: ")
+
+      # read GeoJSON data as sf
+      labeled_polygons = sf::st_read(labeled_polygons, quiet = TRUE)
+
+      # change CRS to cube CRS
+      labeled_polygons = sf::st_transform(labeled_polygons, crs = gdalcubes::srs(data))
+
+      message("Training Polygons sucessfully loaded!\n")
+    },
+    error = function(error)
+    {
+      message("An Error occured!")
+      message(error)
+    })
+
+    message("hyperparameters: ")
+    if (is.null(hyperparameters))
+    {
+      message("No Hyperparameters passed!")
+    }
+    else
+    {
+      for (param in hyperparameters)
+      {
+        message(param)
+      }
+    }
+
+    if (model_type == "RF")
+    {
+
+    }
+
+
+    # for later return
+    model = "test"
+
+    return(model)
   }
 )
 
