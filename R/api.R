@@ -381,7 +381,6 @@ addEndpoint = function() {
   Session$assignProcess(subtract)
   Session$assignProcess(multiply)
   Session$assignProcess(divide)
-  Session$assignProcess(naive_ml)
   Session$assignProcess(train_model)
 
 }
