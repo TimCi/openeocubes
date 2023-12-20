@@ -4,16 +4,7 @@ remotes::install_local("./", dependencies = TRUE, force = TRUE)
 # Start service
 library(openeocubes)
 
-aws.host <- Sys.getenv("AWSHOST")
+config <- SessionConfig(api.port = 8000, host = "127.0.0.1")
 
-if (aws.host == "") {
-  aws.host <- NULL
-} else {
-  message("AWS host port id is: ", aws.host)
-}
-
-
-config <- SessionConfig(api.port = 8000, host = "127.0.0.1", aws.ipv4 = aws.host)
-config$workspace.path <- "/var/openeo/workspace"
 createSessionInstance(config)
 Session$startSession()
