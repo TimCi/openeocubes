@@ -1191,9 +1191,9 @@ train_model <- Process$new(
     # show call stack for debugging
     message("train_model called...")
     message("\nCall parameters: ")
-    message("data: ")
+    message("\ndata: ")
     message(gdalcubes::as_json(data))
-    message("model_type: ")
+    message("\nmodel_type: ")
     message(model_type)
 
     tryCatch({
@@ -1213,7 +1213,7 @@ train_model <- Process$new(
       message(err)
     })
 
-    message("hyperparameters: ")
+    message("\nhyperparameters: ")
     if (is.null(hyperparameters))
     {
       message("No Hyperparameters passed!")
@@ -1230,8 +1230,8 @@ train_model <- Process$new(
     tryCatch({
       message("\nExtract features...: ")
 
-      # extract features from cube (reduce features to one per polygon)
-      features = gdalcubes::extract_geom(data, labeled_polygons, FUN = stats::median)
+      # extract features from cube
+      features = gdalcubes::extract_geom(data, labeled_polygons)
     },
     error = function(err)
     {
@@ -1245,6 +1245,7 @@ train_model <- Process$new(
     tryCatch({
       message("\nMerge features with training data...")
 
+      # this df contains all information from the datacube and the labeled_polgons
       training_df = merge(labeled_polygons, features, by = "FID")
 
       message("Merging complete!")
@@ -1255,37 +1256,79 @@ train_model <- Process$new(
       message(toString(err))
     })
 
-
-
-    if (model_type == "RF")
+    #TODO: find reasonable threshold
+    if (nrow(training_df) > 10000)
     {
-      # set seed for reproducibility
-      #TODO possibly remove
-      set.seed(100)
-
       tryCatch({
-        message("\nSplit training Data...")
+        message("\nReduce number of features...")
 
         # make copy to filter out values not needed for training
         training_df_filtered = training_df
         training_df_filtered$time = NULL
         training_df_filtered$geometry = NULL
-        training_df_filtered$FID = NULL
 
-        train_row_numbers = caret::createDataPartition(training_df$class, p=0.8, list=FALSE)
-        training_data = training_df[train_row_numbers,]
-        testing_data = training_df[-train_row_numbers,]
 
-        message("Data splitting completed!")
+        training_df_reduced = data.frame()
+
+        # from all data with the same FID (same polygon) take only 50% of the
+        # features for each training polygon as they are assumed to carry similar information
+        for (i in as.numeric(unique(training_df_filtered$FID)))
+        {
+          #TODO: find better "reducing" function
+          sub_df = training_df_filtered[training_df_filtered$FID == i,]
+
+          # take 50% of sub_df rows
+          sub_df = sub_df[1:(nrow(sub_df)/2),]
+
+          # append new rows
+          training_df_reduced = rbind(training_df_reduced, sub_df)
+        }
+
+        # overwrite filtered df
+        training_df_filtered = training_df_reduced
+
+        message("Reducing completed.")
       },
       error = function(err)
       {
         message("An Error occured!")
         message(toString(err))
       })
+    }
 
 
 
+    tryCatch({
+      message("\nSplit training Data...")
+
+      train_row_numbers = caret::createDataPartition(
+        training_df_filtered$class, p=0.8, list=FALSE
+      )
+      training_data = training_df_filtered[train_row_numbers,]
+      testing_data = training_df_filtered[-train_row_numbers,]
+
+      message("Data splitting completed!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+    })
+
+    # build specific model given by "model_type"
+    if (model_type == "RF")
+    {
+      # set seed for reproducibility while model training
+      #TODO possibly remove
+      set.seed(100)
+
+      # use fixed hyperparams given by the user
+      # (this may result in a lack of accuracy for the model)
+      if (!is.null(hyperparameters))
+      {
+
+      }
+      # else tune model hyperparameters
 
     }
 
