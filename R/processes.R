@@ -1187,6 +1187,14 @@ train_model <- Process$new(
         type = "boolean"
       ),
       optional = TRUE
+    ),
+    Parameter$new(
+      name = "model_id",
+      description = "Id under which the model should be stored. Defaults to NULL",
+      schema = list(
+        type = "string"
+      ),
+      optional = TRUE
     )
 
   ),
@@ -1194,7 +1202,7 @@ train_model <- Process$new(
     description = "The trained model.",
     schema = list(type = "object", subtype = "caret-ml-model")
   ),
-  operation = function(data, model_type, labeled_polygons, hyperparameters = NULL, save_model = FALSE, job)
+  operation = function(data, model_type, labeled_polygons, hyperparameters = NULL, save_model = FALSE, model_id = NULL, job)
   {
     # show call stack for debugging
     message("train_model called...")
@@ -1235,6 +1243,17 @@ train_model <- Process$new(
       }
     }
 
+    message("\nsave_model:")
+    message(save_model)
+
+    message("\nmodel_id:")
+    print(model_id) # to also show "NULL"
+
+    if (save_model == TRUE && is.null(model_id))
+    {
+      message("If the model should be safed, a model_id needs to be given!")
+      stop("")
+    }
 
     tryCatch({
       message("\nExtract features...")
@@ -1337,7 +1356,8 @@ train_model <- Process$new(
 
       if (!all(c("mtry", "ntree") %in% names(hyperparameters)))
       {
-        throwError("'hyperparameters' has to contain 'mtry' and 'ntree'!")
+        message("'hyperparameters' has to contain 'mtry' and 'ntree'!")
+        stop("")
       }
 
       message("hyperparameters for Random Forest checked!")
@@ -1381,7 +1401,7 @@ train_model <- Process$new(
       tryCatch({
         message("\nSaving model to user workspace...")
 
-        saveRDS(model, paste0(Session$getConfig()$workspace.path, "/model.rds"))
+        saveRDS(model, paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds"))
 
         message("Saving complete!")
       },
@@ -1390,8 +1410,6 @@ train_model <- Process$new(
         message("An Error occured!")
         message(toString(err))
       })
-
-
     }
 
     return(model)
