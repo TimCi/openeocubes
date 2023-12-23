@@ -1210,7 +1210,7 @@ train_model <- Process$new(
     error = function(err)
     {
       message("An Error occured!")
-      message(err)
+      message(toString(err))
     })
 
     message("\nhyperparameters: ")
@@ -1236,7 +1236,7 @@ train_model <- Process$new(
     error = function(err)
     {
       message("An Error occured!")
-      message(err)
+      message(toString(err))
     })
 
     # add FID for merge with 'features'
@@ -1256,18 +1256,18 @@ train_model <- Process$new(
       message(toString(err))
     })
 
+    # make copy to filter out values not needed for training
+    training_df_filtered = training_df
+    training_df_filtered$time = NULL
+    training_df_filtered$geometry = NULL
+
+
     #TODO: find reasonable threshold
     if (nrow(training_df) > 10000)
     {
       tryCatch({
         message("\nReduce number of features...")
-
-        # make copy to filter out values not needed for training
-        training_df_filtered = training_df
-        training_df_filtered$time = NULL
-        training_df_filtered$geometry = NULL
-
-
+        # data frame for later storage
         training_df_reduced = data.frame()
 
         # from all data with the same FID (same polygon) take only 50% of the
@@ -1322,21 +1322,47 @@ train_model <- Process$new(
       #TODO possibly remove
       set.seed(100)
 
+      message("\nChecking hyperparameters for Random Forest...")
+      if (all(c("mtry", "ntree") %in% names(hyperparameters)))
+      {
+        error("'hyperparameters' has to contain 'mtry' and 'ntree'!")
+      }
+      message("hyperparameters for Random Forest checked!")
+
       # use fixed hyperparams given by the user
       # (this may result in a lack of accuracy for the model)
       if (!is.null(hyperparameters))
       {
+
+        tryCatch({
+          message("\nTrain Model with fixed hyperparameters...")
+
+          # no parameters are tuned
+          trainCtrl <- caret::trainControl(method = "none", classProbs = TRUE)
+
+          model <- caret::train(
+            class ~ .,
+            data = training_data,
+            method = "rf",
+            trControl = trainCtrl,
+            # only one model is passed (fixed hyperparams are given)
+            tuneGrid = expand.grid(mtry = hyperparameters$mtry),
+            ntree = hyperparameters$ntree)
+
+          message("Model training finished!")
+        },
+        error = function(err)
+        {
+          message("An Error occured!")
+          message(toString(err))
+        })
 
       }
       # else tune model hyperparameters
 
     }
 
-
-    # for later return
-    model = "test"
-
-    return(training_df)
+    return(model)
   }
 )
 
