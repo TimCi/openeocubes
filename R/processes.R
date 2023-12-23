@@ -1205,7 +1205,7 @@ train_model <- Process$new(
       # change CRS to cube CRS
       labeled_polygons = sf::st_transform(labeled_polygons, crs = gdalcubes::srs(data))
 
-      message("Training Polygons sucessfully loaded!\n")
+      message("Training Polygons sucessfully loaded!")
     },
     error = function(err)
     {
@@ -1228,10 +1228,12 @@ train_model <- Process$new(
 
 
     tryCatch({
-      message("\nExtract features...: ")
+      message("\nExtract features...")
 
       # extract features from cube
       features = gdalcubes::extract_geom(data, labeled_polygons)
+
+      message("all features extracted!")
     },
     error = function(err)
     {
@@ -1287,7 +1289,7 @@ train_model <- Process$new(
         # overwrite filtered df
         training_df_filtered = training_df_reduced
 
-        message("Reducing completed.")
+        message("Reducing completed!")
       },
       error = function(err)
       {
@@ -1323,10 +1325,12 @@ train_model <- Process$new(
       set.seed(100)
 
       message("\nChecking hyperparameters for Random Forest...")
-      if (all(c("mtry", "ntree") %in% names(hyperparameters)))
+
+      if (!all(c("mtry", "ntree") %in% names(hyperparameters)))
       {
-        error("'hyperparameters' has to contain 'mtry' and 'ntree'!")
+        throwError("'hyperparameters' has to contain 'mtry' and 'ntree'!")
       }
+
       message("hyperparameters for Random Forest checked!")
 
       # use fixed hyperparams given by the user
