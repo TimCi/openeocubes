@@ -1179,6 +1179,14 @@ train_model <- Process$new(
         type = "list"
       ),
       optional = TRUE
+    ),
+    Parameter$new(
+      name = "save_model",
+      description = "Declare wether the computed model should be saved in the user workspace. Defaults to false.",
+      schema = list(
+        type = "boolean"
+      ),
+      optional = TRUE
     )
 
   ),
@@ -1186,10 +1194,11 @@ train_model <- Process$new(
     description = "The trained model.",
     schema = list(type = "object", subtype = "caret-ml-model")
   ),
-  operation = function(data, model_type, labeled_polygons, hyperparameters = NULL, job)
+  operation = function(data, model_type, labeled_polygons, hyperparameters = NULL, save_model = FALSE, job)
   {
     # show call stack for debugging
     message("train_model called...")
+
     message("\nCall parameters: ")
     message("\ndata: ")
     message(gdalcubes::as_json(data))
@@ -1363,6 +1372,25 @@ train_model <- Process$new(
 
       }
       # else tune model hyperparameters
+
+    }
+
+    # save model to user workspace
+    if (save_model)
+    {
+      tryCatch({
+        message("\nSaving model to user workspace...")
+
+        saveRDS(model, paste0(Session$getConfig()$workspace.path, "/model.rds"))
+
+        message("Saving complete!")
+      },
+      error = function(err)
+      {
+        message("An Error occured!")
+        message(toString(err))
+      })
+
 
     }
 
