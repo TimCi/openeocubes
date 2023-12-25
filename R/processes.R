@@ -1237,9 +1237,9 @@ train_model <- Process$new(
     }
     else
     {
-      for (param in hyperparameters)
+      for (name in names(hyperparameters))
       {
-        message(param)
+        message(paste0(name, ": ", hyperparameters[name]))
       }
     }
 
@@ -1249,6 +1249,8 @@ train_model <- Process$new(
     message("\nmodel_id:")
     print(model_id) # to also show "NULL"
 
+
+    # obvios boolean check for mor readibility
     if (save_model == TRUE && is.null(model_id))
     {
       message("If the model should be safed, a model_id needs to be given!")
@@ -1326,6 +1328,8 @@ train_model <- Process$new(
       })
     }
 
+    # remove FID to not train model on FID
+    training_df_filtered$FID = NULL
 
 
     tryCatch({
