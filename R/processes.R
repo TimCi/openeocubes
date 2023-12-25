@@ -1416,3 +1416,192 @@ train_model <- Process$new(
   }
 )
 
+
+predict_model <- Process$new(
+  id = "predict_model",
+  description = "Perform a prediction on a datacube based on the given model.",
+  categories = as.array("cubes", "machine-learning"),
+  summary = "Predict data on datacube.",
+  parameters = list(
+    Parameter$new(
+      name = "data",
+      description = "The data to work with.",
+      schema = list(
+        type = "object",
+        subtype = "raster-cube"
+      )
+    ),
+    Parameter$new(
+      name = "model_id",
+      description = "Id of the model that should be used for prediction. The model will be searches in the user workspace.",
+      schema = list(
+        type = "string"
+      )
+    ),
+    Parameter$new(
+      name = "aoi_extend",
+      description = "Spatial extend of the area of interest (aoi) to be used for classification. Has to be in EPSG:3857",
+      schema = list(
+        list(
+          title = "Bounding box",
+          type = "object",
+          subtype = "bounding-box",
+          properties = list(
+            east = list(
+              description = "East (upper right corner, coordinate axis 1).",
+              type = "number"
+            ),
+            west = list(
+              description = "West lower left corner, coordinate axis 1).",
+              type = "number"
+            ),
+            north = list(
+              description = "North (upper right corner, coordinate axis 2).",
+              type = "number"
+            ),
+            south = list(
+              description = "South (lower left corner, coordinate axis 2).",
+              type = "number"
+            )
+          ),
+          required = c("east", "west", "south", "north")
+        )
+      )
+    )
+  ),
+  returns = list(
+    description = "Spatial data frame containing the geometry, class and class probability for each pixel",
+    schema = list(type = "data.frame")
+  ),
+  operation = function(data, model_id, aoi_extend, job) {
+    # show call stack for debugging
+    message("predict_model called...")
+
+    message("\nCall parameters: ")
+    message("\ndata: ")
+    message(gdalcubes::as_json(data))
+
+    message("\nmodel_id:")
+    message(model_id)
+
+    message("\naoi_extend:")
+    for (name in names(aoi_extend))
+    {
+      message(paste0(name),": ", aoi_extend[name])
+    }
+
+    xmin = aoi_extend$west
+    ymin = aoi_extend$south
+    xmax = aoi_extend$east
+    ymax = aoi_extend$north
+
+
+    tryCatch({
+      message("\nCreate AOI Polygons...")
+
+      aoi_polygon_df = data.frame(x = c(xmin,xmax), y = c(ymin ,ymax))
+
+      poly <- aoi_polygon_df |>
+        # create sf_point object
+        sf::st_as_sf(coords = c("x", "y"), crs = 3857) |> sf::st_transform(gdalcubes::srs(data)) |>
+        sf::st_bbox() |>
+        sf::st_as_sfc() |>
+        # create sf_polygon object
+        sf::st_as_sf()
+
+
+      # get cube resolution
+      cube_resolution = gdalcubes::dimensions(data)$x$pixel_size
+
+      # grid to rasterize the aoi polygon
+      grid = stars::st_as_stars(sf::st_bbox(poly), dx = cube_resolution, dy = cube_resolution)
+
+      # aoi polygon rastern (in ein polygon pro pixel)
+      aoi_points = poly |> stars::st_rasterize(grid) |> sf::st_as_sf()
+
+      message("AOI Polygons created!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+    tryCatch({
+      message("\nExtract features...")
+
+      # extract features from cube
+      features = gdalcubes::extract_geom(data, aoi_points)
+
+      message("All features extracted!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+
+    tryCatch({
+      message("\nPreparing prediction dataset...")
+
+      # copy features to filter out unwanted data
+      features_filtered = features
+      features_filtered$time = NULL
+      features_filtered$FID = NULL
+
+      message("Data preperation finished!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+    tryCatch({
+      message("\nPerform predicition...")
+
+      # get model from user workspace
+      model = readRDS(paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds"))
+
+      # predict classes
+      predicted_classes = stats::predict(model, newdata = features_filtered)
+
+      # get class probalilities
+      prediction_accuracys = stats::predict(model, newdata = features_filtered, type = "prob")
+
+      # get column with only the highest class prob
+      max_accuracy_per_pixel = apply(prediction_accuracys, 1, base::max)
+
+      message("Prediction completed!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+
+    tryCatch({
+      message("\nCreate output dataframe...")
+
+      features$class = predicted_classes
+      features$class_accuracys = max_accuracy_per_pixel
+
+      message("Dataframe created!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+
+    return(features)
+  }
+)
