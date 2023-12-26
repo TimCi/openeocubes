@@ -1538,7 +1538,29 @@ predict_model <- Process$new(
       # extract features from cube
       features = gdalcubes::extract_geom(data, aoi_points)
 
+      # reset FID to prevent mismatch after extraction
+      features$FID = NULL
+      features$FID = rownames(features)
+
       message("All features extracted!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+    tryCatch({
+      message("\nAdd spatial information to data.frame...")
+
+      # FID for later merge
+      aoi_points$FID = rownames(aoi_points)
+
+      # remove old ID
+      aoi_points$ID = NULL
+
+      message("Spatial information added!")
     },
     error = function(err)
     {
@@ -1549,12 +1571,30 @@ predict_model <- Process$new(
 
 
     tryCatch({
+      message("\nMerge data.frame and aoi_points...")
+
+      features = base::merge(features, aoi_points, by = "FID")
+
+      # reset FID to prevent mismatch after merge
+      features$FID = rownames(features)
+
+      message("Merge completed!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+    tryCatch({
       message("\nPreparing prediction dataset...")
 
       # copy features to filter out unwanted data
       features_filtered = features
       features_filtered$time = NULL
       features_filtered$FID = NULL
+      features_filtered$geometry = NULL
 
       message("Data preperation finished!")
     },
@@ -1593,10 +1633,18 @@ predict_model <- Process$new(
     tryCatch({
       message("\nCreate output dataframe...")
 
-      features$class = predicted_classes
-      features$class_accuracys = max_accuracy_per_pixel
+      # create data.frame of same length as features
+      output_dataframe = base::as.data.frame(base::matrix(NA,
+                                                          nrow = nrow(features),
+                                                          ncol = 1,
+                                                          dimnames = list(c(), "FID")))
 
-      message("Dataframe created!")
+      output_dataframe$FID = features$FID
+      output_dataframe$class = predicted_classes
+      output_dataframe$class_accuracys = max_accuracy_per_pixel
+      output_dataframe$geometry = features$geometry
+
+      message("Output dataframe created!")
     },
     error = function(err)
     {
@@ -1606,6 +1654,6 @@ predict_model <- Process$new(
     })
 
 
-    return(features)
+    return(output_dataframe)
   }
 )
