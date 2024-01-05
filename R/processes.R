@@ -1697,6 +1697,9 @@ predict_model <- Process$new(
       stop()
     })
 
+    # convert output to spatial dataframe
+    output_dataframe = sf::st_as_sf(output_dataframe)
+
 
     return(output_dataframe)
   }
