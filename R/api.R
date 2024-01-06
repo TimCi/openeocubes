@@ -188,7 +188,7 @@ NULL
               file = base::tempfile()
 
               # save whole file
-              sf::st_write(data, file, driver = "netCDF")
+              sf::st_write(job$results, file, driver = "netCDF")
             }
           }
           else if (format == "GTiff")
