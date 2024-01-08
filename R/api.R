@@ -188,7 +188,7 @@ NULL
               file = base::tempfile()
 
               # save whole file
-              sf::st_write(data, file, driver = "netCDF")
+              sf::st_write(job$results, file, driver = "netCDF")
             }
           }
           else if (format == "GTiff")
@@ -216,6 +216,12 @@ NULL
             else if (all(c("train", "train.formula") %in% class(job$results)))
             {
               # result is a caret model
+
+              base::saveRDS(job$results, file)
+            }
+            else if (all(c("sf", "data.frame") %in% class(job$results)))
+            {
+              # result is a sf data.frame
 
               base::saveRDS(job$results, file)
             }
