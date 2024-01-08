@@ -219,6 +219,12 @@ NULL
 
               base::saveRDS(job$results, file)
             }
+            else if (all(c("sf", "data.frame") %in% class(job$results)))
+            {
+              # result is a sf data.frame
+
+              base::saveRDS(job$results, file)
+            }
           }
           else
           {
