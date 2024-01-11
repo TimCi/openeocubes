@@ -787,6 +787,9 @@ reduce_dimension <- Process$new(
   ),
   returns = eo_datacube,
   operation = function(data, reducer, dimension, job) {
+    message("\n reduce_dimension called...")
+
+
     if (dimension == "t" || dimension == "time") {
       bands <- bands(data)$name
       bandStr <- c()
@@ -796,6 +799,10 @@ reduce_dimension <- Process$new(
       }
 
       cube <- gdalcubes::reduce_time(data, bandStr)
+
+      message("\nreduced Cube: ")
+      print(cube)
+
       return(cube)
     } else if (dimension == "bands") {
       cube <- gdalcubes::apply_pixel(data, reducer, keep_bands = FALSE)
@@ -1022,6 +1029,12 @@ rename_labels <- Process$new(
   ),
   returns = eo_datacube,
   operation = function(data, dimension, target, source = NULL, job) {
+
+    message("\n rename_labels called...")
+
+    message("\ninput cube: ")
+    print(data)
+
     if (dimension == "bands") {
       if (!is.null(source)) {
         if (class(source) == "number" || class(source) == "integer") {
@@ -1036,6 +1049,10 @@ rename_labels <- Process$new(
         band <- as.character(bands(data)$name[1])
         cube <- gdalcubes::apply_pixel(data, band, names = target)
       }
+
+      message("\ncube after renaming: ")
+      print(cube)
+
       return(cube)
     } else {
       stop("Only bands dimension supported")
@@ -1246,7 +1263,7 @@ train_model <- Process$new(
 
     message("\nCall parameters: ")
     message("\ndata: ")
-    message(gdalcubes::as_json(data))
+    print(data)
     message("\nmodel_type: ")
     message(model_type)
 
@@ -1316,8 +1333,6 @@ train_model <- Process$new(
 
       # this df contains all information from the datacube and the labeled_polgons
       training_df = merge(labeled_polygons, features, by = "FID")
-
-      return(training_df)
 
       message("Merging complete!")
     },
@@ -1586,6 +1601,7 @@ predict_model <- Process$new(
     ymax = aoi_extend$north
 
 
+
     tryCatch({
       message("\nCreate AOI Polygons...")
 
@@ -1719,6 +1735,9 @@ predict_model <- Process$new(
       output_dataframe$class_accuracys = max_accuracy_per_pixel
       output_dataframe$geometry = features$geometry
 
+      # convert output to spatial dataframe
+      output_dataframe = sf::st_as_sf(output_dataframe)
+
       message("Output dataframe created!")
     },
     error = function(err)
@@ -1727,10 +1746,6 @@ predict_model <- Process$new(
       message(toString(err))
       stop()
     })
-
-    # convert output to spatial dataframe
-    output_dataframe = sf::st_as_sf(output_dataframe)
-
 
     return(output_dataframe)
   }
