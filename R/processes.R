@@ -1317,6 +1317,8 @@ train_model <- Process$new(
       # this df contains all information from the datacube and the labeled_polgons
       training_df = merge(labeled_polygons, features, by = "FID")
 
+      return(training_df)
+
       message("Merging complete!")
     },
     error = function(err)
@@ -1330,6 +1332,8 @@ train_model <- Process$new(
     training_df_filtered$time = NULL
     training_df_filtered$geometry = NULL
 
+
+    message("\nFeatures in 'training_df': ", nrow(training_df))
 
     #TODO: find reasonable threshold
     if (nrow(training_df) > 10000)
@@ -1497,9 +1501,9 @@ train_model <- Process$new(
 
 predict_model <- Process$new(
   id = "predict_model",
-  description = "Perform a prediction on a datacube based on the given model.",
+  description = "Perform a prediction on a datacube based on the given model. This approach extracts each pixel value as a row of a data.frame. This data.frame is then used to predict class values for each pixel. ",
   categories = as.array("machine-learning", "cubes"),
-  summary = "Predict data on datacube.",
+  summary = "Predict data on datacube based on a data.frame.",
   parameters = list(
     Parameter$new(
       name = "data",
