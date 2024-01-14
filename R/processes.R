@@ -1807,3 +1807,91 @@ fill_missing_values <- Process$new(
     return(data)
   }
 )
+
+#' apply_prediction
+apply_prediction <- Process$new(
+  id = "apply_prediction",
+  description = "Apply a machine-learning model on each pixel of the datacube. This creates 2 new bands in the cube containing the predicted classes per pixel and the propability of the predicted class (class accuracy). Bands of the source cube can optionally be included.",
+  categories = as.array("cubes", "machine-learning"),
+  summary = "Apply a machine-learning based prediction on a datacube",
+  parameters = list(
+    Parameter$new(
+      name = "data",
+      description = "A data cube with bands.",
+      schema = list(
+        type = "object",
+        subtype = "raster-cube"
+      )
+    ),
+    Parameter$new(
+      name = "model_id",
+      description = "Id of the model that should be used for prediction. The model will be searched in the user workspace.",
+      schema = list(
+        type = "string"
+      )
+    ),
+    Parameter$new(
+      name = "keep_bands",
+      description = "Keep bands of input data cube, defaults to FALSE, i.e. original bands will be dropped.",
+      schema = list(
+        type = "boolean"
+      )
+    )
+  ),
+  returns = eo_datacube,
+  operation = function(data, model_id, keep_bands = FALSE, job) {
+
+    message("\napply_prediction called...")
+
+    message("\nCall parameters:")
+    message("\ndata:")
+    print(data)
+
+    message("\nmodel_id:")
+    message(model_id)
+
+    tryCatch({
+      message("\nTry loading the model from user workspace...")
+
+      path_to_model = paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds")
+
+      # get model from user workspace
+      model = readRDS(path_to_model)
+
+      message("Model found in: ", path_to_model)
+      message("\nModel loaded successfully!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+    #TODO: How can i give the cube information about the model to be used
+    # creates two bands "predicted_classes", "class_accuracies" in the datacube
+    cube = gdalcubes::apply_pixel(
+      data,
+      names = c("predicted_classes", "class_accuracies"),
+      FUN = function(band_values_vector)
+      {
+        tryCatch({
+          predicted_class = stats::predict(model, newdata = band_values_vector)
+          class_accuracy = stats::predict(model, newdata = band_values_vector, type = "prob")
+
+          return(c(predicted_class, class_accuracy))
+        },
+        error = function(err)
+        {
+          return(c(NA,NA))
+        })
+
+      })
+
+
+    message("\nDatacube: ")
+    print(cube)
+
+    return(cube)
+  }
+)
