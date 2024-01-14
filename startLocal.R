@@ -1,5 +1,5 @@
 # build and install package locally (use for development)
-remotes::install_local("./", dependencies = TRUE, force = TRUE)
+remotes::install_local("./", dependencies = FALSE, force = TRUE)
 
 # Start service
 library(openeocubes)

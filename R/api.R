@@ -378,4 +378,6 @@ addEndpoint = function() {
   Session$assignProcess(train_model)
   Session$assignProcess(predict_model)
   Session$assignProcess(fill_missing_values)
+  Session$assignProcess(apply_prediction)
+  Session$assignProcess(load_netCDF_cube)
 }

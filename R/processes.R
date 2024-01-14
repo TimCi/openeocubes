@@ -787,6 +787,9 @@ reduce_dimension <- Process$new(
   ),
   returns = eo_datacube,
   operation = function(data, reducer, dimension, job) {
+    message("\n reduce_dimension called...")
+
+
     if (dimension == "t" || dimension == "time") {
       bands <- bands(data)$name
       bandStr <- c()
@@ -796,6 +799,10 @@ reduce_dimension <- Process$new(
       }
 
       cube <- gdalcubes::reduce_time(data, bandStr)
+
+      message("\nreduced Cube: ")
+      print(cube)
+
       return(cube)
     } else if (dimension == "bands") {
       cube <- gdalcubes::apply_pixel(data, reducer, keep_bands = FALSE)
@@ -1022,6 +1029,12 @@ rename_labels <- Process$new(
   ),
   returns = eo_datacube,
   operation = function(data, dimension, target, source = NULL, job) {
+
+    message("\n rename_labels called...")
+
+    message("\ninput cube: ")
+    print(data)
+
     if (dimension == "bands") {
       if (!is.null(source)) {
         if (class(source) == "number" || class(source) == "integer") {
@@ -1036,6 +1049,10 @@ rename_labels <- Process$new(
         band <- as.character(bands(data)$name[1])
         cube <- gdalcubes::apply_pixel(data, band, names = target)
       }
+
+      message("\ncube after renaming: ")
+      print(cube)
+
       return(cube)
     } else {
       stop("Only bands dimension supported")
@@ -1246,7 +1263,7 @@ train_model <- Process$new(
 
     message("\nCall parameters: ")
     message("\ndata: ")
-    message(gdalcubes::as_json(data))
+    print(data)
     message("\nmodel_type: ")
     message(model_type)
 
@@ -1330,6 +1347,8 @@ train_model <- Process$new(
     training_df_filtered$time = NULL
     training_df_filtered$geometry = NULL
 
+
+    message("\nFeatures in 'training_df': ", nrow(training_df))
 
     #TODO: find reasonable threshold
     if (nrow(training_df) > 10000)
@@ -1497,9 +1516,9 @@ train_model <- Process$new(
 
 predict_model <- Process$new(
   id = "predict_model",
-  description = "Perform a prediction on a datacube based on the given model.",
+  description = "Perform a prediction on a datacube based on the given model. This approach extracts each pixel value as a row of a data.frame. This data.frame is then used to predict class values for each pixel. ",
   categories = as.array("machine-learning", "cubes"),
-  summary = "Predict data on datacube.",
+  summary = "Predict data on datacube based on a data.frame.",
   parameters = list(
     Parameter$new(
       name = "data",
@@ -1580,6 +1599,7 @@ predict_model <- Process$new(
     ymin = aoi_extend$south
     xmax = aoi_extend$east
     ymax = aoi_extend$north
+
 
 
     tryCatch({
@@ -1715,6 +1735,9 @@ predict_model <- Process$new(
       output_dataframe$class_accuracys = max_accuracy_per_pixel
       output_dataframe$geometry = features$geometry
 
+      # convert output to spatial dataframe
+      output_dataframe = sf::st_as_sf(output_dataframe)
+
       message("Output dataframe created!")
     },
     error = function(err)
@@ -1723,10 +1746,6 @@ predict_model <- Process$new(
       message(toString(err))
       stop()
     })
-
-    # convert output to spatial dataframe
-    output_dataframe = sf::st_as_sf(output_dataframe)
-
 
     return(output_dataframe)
   }
@@ -1786,5 +1805,137 @@ fill_missing_values <- Process$new(
     })
 
     return(data)
+  }
+)
+
+#' apply_prediction
+apply_prediction <- Process$new(
+  id = "apply_prediction",
+  description = "Apply a machine-learning model on each pixel of the datacube. This creates 2 new bands in the cube containing the predicted classes per pixel and the propability of the predicted class (class accuracy). Bands of the source cube can optionally be included.",
+  categories = as.array("cubes", "machine-learning"),
+  summary = "Apply a machine-learning based prediction on a datacube",
+  parameters = list(
+    Parameter$new(
+      name = "data",
+      description = "A data cube with bands.",
+      schema = list(
+        type = "object",
+        subtype = "raster-cube"
+      )
+    ),
+    Parameter$new(
+      name = "model_id",
+      description = "Id of the model that should be used for prediction. The model will be searched in the user workspace.",
+      schema = list(
+        type = "string"
+      )
+    ),
+    Parameter$new(
+      name = "keep_bands",
+      description = "Keep bands of input data cube, defaults to FALSE, i.e. original bands will be dropped.",
+      schema = list(
+        type = "boolean"
+      )
+    )
+  ),
+  returns = eo_datacube,
+  operation = function(data, model_id, keep_bands = FALSE, job) {
+
+    message("\napply_prediction called...")
+
+    message("\nCall parameters:")
+    message("\ndata:")
+    print(data)
+
+    message("\nmodel_id:")
+    message(model_id)
+
+    tryCatch({
+      message("\nTry loading the model from user workspace...")
+
+      path_to_model = paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds")
+
+      # get model from user workspace
+      model = readRDS(path_to_model)
+
+      message("Model found in: ", path_to_model)
+      message("\nModel loaded successfully!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+    #TODO: How can i give the cube information about the model to be used
+    # creates two bands "predicted_classes", "class_accuracies" in the datacube
+    cube = gdalcubes::apply_pixel(
+      data,
+      names = c("predicted_classes", "class_accuracies"),
+      FUN = function(band_values_vector)
+      {
+        tryCatch({
+          predicted_class = stats::predict(model, newdata = band_values_vector)
+          class_accuracy = stats::predict(model, newdata = band_values_vector, type = "prob")
+
+          return(c(predicted_class, class_accuracy))
+        },
+        error = function(err)
+        {
+          return(c(NA,NA))
+        })
+
+      })
+
+
+    message("\nDatacube: ")
+    print(cube)
+
+    return(cube)
+  }
+)
+
+
+
+#' load_netCDF_cube
+load_netCDF_cube <- Process$new(
+  id = "load_netCDF_cube",
+  description = "Loads netCDF cube from user workspace via its file name.",
+  categories = as.array("cubes"),
+  summary = "Load netCDF cube..",
+  parameters = list(
+    Parameter$new(
+      name = "cube_id",
+      description = "Filename of the netCDF cube.",
+      schema = list(
+        type = "string"
+      )
+    )),
+  returns = eo_datacube,
+  operation = function(cube_id, job) {
+    message("\nload_netCDF_cube called...")
+    message("\ncube_id:")
+    message(cube_id)
+
+    tryCatch({
+      message("\nTry loading netCDF cube...")
+
+      cubepath = paste0(Session$getConfig()$workspace.path, "/", cube_id, ".nc")
+
+      message("\npath to cube: ", cubepath)
+
+      cube = gdalcubes::ncdf_cube(cubepath)
+
+      message("netCDF cube loaded!")
+    },
+    error = function(err)
+    {
+      message("An Error occured!")
+      message(toString(err))
+      stop()
+    })
+
+    return(cube)
   }
 )
