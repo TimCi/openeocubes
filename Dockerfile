@@ -19,6 +19,9 @@ RUN Rscript -e "install.packages(c('plumber', 'useful', 'ids', 'R6', 'sf', 'rsta
 # create directories
 RUN mkdir -p /opt/dockerfiles/ && mkdir -p /var/openeo/workspace/ && mkdir -p /var/openeo/workspace/data/
 
+# copy demodata in user workspace
+COPY ./demodata /var/openeo/workspace/
+
 # install packages from local directory
 COPY ./ /opt/dockerfiles/
 RUN Rscript -e "remotes::install_local('/opt/dockerfiles', dependencies=TRUE)"
