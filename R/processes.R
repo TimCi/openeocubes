@@ -1861,9 +1861,12 @@ apply_prediction <- Process$new(
     tryCatch({
       message("\nTry loading the model from user workspace...")
 
-      
+      path_to_model = paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds")
 
-      
+      message("Path to model: ", path_to_model)
+
+      # get model from user workspace
+      model = readRDS(path_to_model)
 
       message("Model found in: ", path_to_model)
       message("\nModel loaded successfully!")
@@ -1874,43 +1877,59 @@ apply_prediction <- Process$new(
       message(toString(err))
       stop()
     })
-        
-    path_to_model = paste0(getwd(), "/test_workspace", "/", model_id, ".rds")
 
-    # get model from user workspace
-    model = readRDS(path_to_model)
+    # get band names for to later create a data.frame
+    band_names = names(data)
 
+    # the model and band_names need to be loaded into a tempdir, so that it can be accessed in a new process in "FUN" from "apply_pixel" (see below)
     t = tempdir()
 
-    # the model needs to be loaded into a tempfile, that it can be accessed in a new process in FUn from "apply_pixel"
-    save.image(paste0(t, "/workspace.ra"))
+    message("Current tempdir: ", t)
 
-    #TODO: How can i give the cube information about the model to be used
-    # creates two bands "predicted_classes", "class_accuracies" in the datacube
-    # WICHTIG: In der Funktion müssen erst alle Variablen/Packages neu eingeladen werden
+    # save variable in tempdir
+    saveRDS(model, paste0(t, "/model.rds"))
+    saveRDS(band_names, paste0(t, "/band_names.rds"))
+
+    # save tempdir string to later retrieve files in another process
+    Sys.setenv(TEMP_DIR = t)
+
+    # creates two bands "predicted_classes", "class_confidence" in the datacube
     cube = gdalcubes::apply_pixel(
       data,
-      names = c("predicted_classes", "class_accuracies"),
+      names = c("predicted_class", "class_confidence"),
       FUN = function(band_values_vector)
       {
         library(caret)
         library(randomForest)
-        # TODO: COde dynamisch machen
-        tmp = tempdir()
 
-        load(paste0(tmp,  "/workspace.ra"))
 
-        # schauen, ob ich einen 1-zeiligen data.frame draus machen muss
+        # load tempdir path from Global Env, to ensure its the same as in the process above
+        tmp = Sys.getenv("TEMP_DIR")
+        message("Tempdir in FUN: ", tmp)
+
+        # load variables needed for prediction
+        model = readRDS(paste0(tmp, "/model.rds"))
+        band_names = readRDS(paste0(tmp, "/band_names.rds"))
+
+        # named vector for df creation
+        named_vector = setNames(band_values_vector, band_names)
+
+        # create 1-row df per pixel of the datacube
+        band_value_df = as.data.frame(t(named_vector))
+
 
         tryCatch({
-          predicted_class = stats::predict(model, newdata = band_values_vector)
-          class_accuracy = stats::predict(model, newdata = band_values_vector, type = "prob")
+          predicted_class = stats::predict(model, newdata = band_value_df)
+          class_confidence = stats::predict(model, newdata = band_value_df, type = "prob")
 
-          return(c(predicted_class, class_accuracy))
+          # determine confidence value for the classified class
+          highest_class_confidence = base::apply(class_confidence, 1, base::max)
+
+          return(c(predicted_class, highest_class_confidence))
         },
         error = function(err)
         {
-          return(c(NA,NA))
+          return(c(NA, NA))
         })
 
       })
