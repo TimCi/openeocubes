@@ -1617,14 +1617,14 @@ predict_model <- Process$new(
         sf::st_as_sf()
 
 
-      # get cube resolution
-      cube_resolution = gdalcubes::dimensions(data)$x$pixel_size
+      # # get cube resolution
+      # cube_resolution = gdalcubes::dimensions(data)$x$pixel_size
 
-      # grid to rasterize the aoi polygon
-      grid = stars::st_as_stars(sf::st_bbox(poly), dx = cube_resolution, dy = cube_resolution)
+      # # grid to rasterize the aoi polygon
+      # grid = stars::st_as_stars(sf::st_bbox(poly), dx = cube_resolution, dy = cube_resolution)
 
-      # aoi polygon rastern (in ein polygon pro pixel)
-      aoi_points = poly |> stars::st_rasterize(grid) |> sf::st_as_sf()
+      # # aoi polygon rastern (in ein polygon pro pixel)
+      # aoi_points = poly |> stars::st_rasterize(grid) |> sf::st_as_sf()
 
       message("AOI Polygons created!")
     },
@@ -1635,11 +1635,16 @@ predict_model <- Process$new(
       stop()
     })
 
+    # mit left oder rigth kann man auf die Rechte oder linbke koordinate des Pixel zugrifen
+    # dann bekommt man ein neues Band mit der Koordinate pro Pixel
+    data = gdalcubes::apply_pixel(data, c("(left + right) / 2", "(top + bottom) / 2"), names = c("x", "y"), keep_bands = TRUE)
+
+
     tryCatch({
       message("\nExtract features...")
 
       # extract features from cube
-      features = gdalcubes::extract_geom(data, aoi_points)
+      features = gdalcubes::extract_geom(data, poly)
 
       # reset FID to prevent mismatch after extraction
       features$FID = NULL
@@ -1655,28 +1660,28 @@ predict_model <- Process$new(
     })
 
 
-    tryCatch({
-      message("\nMerge data.frame and aoi_points...")
+    # tryCatch({
+    #   message("\nMerge data.frame and aoi_points...")
 
-      # FID for later merge
-      aoi_points$FID = rownames(aoi_points)
+    #   # FID for later merge
+    #   aoi_points$FID = rownames(aoi_points)
 
-      # remove old ID
-      aoi_points$ID = NULL
+    #   # remove old ID
+    #   aoi_points$ID = NULL
 
-      features = base::merge(features, aoi_points, by = "FID")
+    #   features = base::merge(features, aoi_points, by = "FID")
 
-      # reset FID to prevent mismatch after merge
-      features$FID = rownames(features)
+    #   # reset FID to prevent mismatch after merge
+    #   features$FID = rownames(features)
 
-      message("Merge completed!")
-    },
-    error = function(err)
-    {
-      message("An Error occured!")
-      message(toString(err))
-      stop()
-    })
+    #   message("Merge completed!")
+    # },
+    # error = function(err)
+    # {
+    #   message("An Error occured!")
+    #   message(toString(err))
+    #   stop()
+    # })
 
     tryCatch({
       message("\nPreparing prediction dataset...")
@@ -1701,6 +1706,9 @@ predict_model <- Process$new(
 
       # get model from user workspace
       model = readRDS(paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds"))
+
+
+      # TODO: checken, das caret die Reihenfolge im data.frame bewahrt
 
       # predict classes
       predicted_classes = stats::predict(model, newdata = features_filtered)
@@ -1855,6 +1863,8 @@ apply_prediction <- Process$new(
 
       path_to_model = paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds")
 
+      message("Path to model: ", path_to_model)
+
       # get model from user workspace
       model = readRDS(path_to_model)
 
@@ -1868,22 +1878,58 @@ apply_prediction <- Process$new(
       stop()
     })
 
-    #TODO: How can i give the cube information about the model to be used
-    # creates two bands "predicted_classes", "class_accuracies" in the datacube
+    # get band names for to later create a data.frame
+    band_names = names(data)
+
+    # the model and band_names need to be loaded into a tempdir, so that it can be accessed in a new process in "FUN" from "apply_pixel" (see below)
+    t = tempdir()
+
+    message("Current tempdir: ", t)
+
+    # save variable in tempdir
+    saveRDS(model, paste0(t, "/model.rds"))
+    saveRDS(band_names, paste0(t, "/band_names.rds"))
+
+    # save tempdir string to later retrieve files in another process
+    Sys.setenv(TEMP_DIR = t)
+
+    # creates two bands "predicted_classes", "class_confidence" in the datacube
     cube = gdalcubes::apply_pixel(
       data,
-      names = c("predicted_classes", "class_accuracies"),
+      names = c("predicted_class", "class_confidence"),
       FUN = function(band_values_vector)
       {
-        tryCatch({
-          predicted_class = stats::predict(model, newdata = band_values_vector)
-          class_accuracy = stats::predict(model, newdata = band_values_vector, type = "prob")
+        library(caret)
+        library(randomForest)
 
-          return(c(predicted_class, class_accuracy))
+
+        # load tempdir path from Global Env, to ensure its the same as in the process above
+        tmp = Sys.getenv("TEMP_DIR")
+        message("Tempdir in FUN: ", tmp)
+
+        # load variables needed for prediction
+        model = readRDS(paste0(tmp, "/model.rds"))
+        band_names = readRDS(paste0(tmp, "/band_names.rds"))
+
+        # named vector for df creation
+        named_vector = setNames(band_values_vector, band_names)
+
+        # create 1-row df per pixel of the datacube
+        band_value_df = as.data.frame(t(named_vector))
+
+
+        tryCatch({
+          predicted_class = stats::predict(model, newdata = band_value_df)
+          class_confidence = stats::predict(model, newdata = band_value_df, type = "prob")
+
+          # determine confidence value for the classified class
+          highest_class_confidence = base::apply(class_confidence, 1, base::max)
+
+          return(c(predicted_class, highest_class_confidence))
         },
         error = function(err)
         {
-          return(c(NA,NA))
+          return(c(NA, NA))
         })
 
       })
