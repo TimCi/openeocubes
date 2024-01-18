@@ -1669,7 +1669,7 @@ predict_model <- Process$new(
 
 
     tryCatch({
-      message("\nCreate AOI Polygons...")
+      message("\nCreate AOI Polygon...")
 
       aoi_polygon_df = data.frame(x = c(xmin,xmax), y = c(ymin ,ymax))
 
@@ -1682,17 +1682,7 @@ predict_model <- Process$new(
         # create sf_polygon object
         sf::st_as_sf()
 
-
-      # # get cube resolution
-      # cube_resolution = gdalcubes::dimensions(data)$x$pixel_size
-
-      # # grid to rasterize the aoi polygon
-      # grid = stars::st_as_stars(sf::st_bbox(poly), dx = cube_resolution, dy = cube_resolution)
-
-      # # aoi polygon rastern (in ein polygon pro pixel)
-      # aoi_points = poly |> stars::st_rasterize(grid) |> sf::st_as_sf()
-
-      message("AOI Polygons created!")
+      message("AOI Polygon created!")
     },
     error = function(err)
     {
@@ -1725,30 +1715,6 @@ predict_model <- Process$new(
       stop()
     })
 
-
-    # tryCatch({
-    #   message("\nMerge data.frame and aoi_points...")
-
-    #   # FID for later merge
-    #   aoi_points$FID = rownames(aoi_points)
-
-    #   # remove old ID
-    #   aoi_points$ID = NULL
-
-    #   features = base::merge(features, aoi_points, by = "FID")
-
-    #   # reset FID to prevent mismatch after merge
-    #   features$FID = rownames(features)
-
-    #   message("Merge completed!")
-    # },
-    # error = function(err)
-    # {
-    #   message("An Error occured!")
-    #   message(toString(err))
-    #   stop()
-    # })
-
     tryCatch({
       message("\nPreparing prediction dataset...")
 
@@ -1757,6 +1723,8 @@ predict_model <- Process$new(
       features_filtered$time = NULL
       features_filtered$FID = NULL
       features_filtered$geometry = NULL
+      features_filtered$x = NULL
+      features_filtered$y = NULL
 
       message("Data preperation finished!")
     },
@@ -1773,17 +1741,16 @@ predict_model <- Process$new(
       # get model from user workspace
       model = readRDS(paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds"))
 
-
       # TODO: checken, das caret die Reihenfolge im data.frame bewahrt
 
       # predict classes
       predicted_classes = stats::predict(model, newdata = features_filtered)
 
       # get class probalilities
-      prediction_accuracys = stats::predict(model, newdata = features_filtered, type = "prob")
+      prediction_confidence = stats::predict(model, newdata = features_filtered, type = "prob")
 
       # get column with only the highest class prob
-      max_accuracy_per_pixel = apply(prediction_accuracys, 1, base::max)
+      max_confidence_per_pixel = apply(prediction_confidence, 1, base::max)
 
       message("Prediction completed!")
     },
@@ -1806,11 +1773,12 @@ predict_model <- Process$new(
 
       output_dataframe$FID = features$FID
       output_dataframe$class = predicted_classes
-      output_dataframe$class_accuracys = max_accuracy_per_pixel
-      output_dataframe$geometry = features$geometry
+      output_dataframe$class_confidence = max_confidence_per_pixel
+      output_dataframe$x = features$x
+      output_dataframe$y = features$y
 
       # convert output to spatial dataframe
-      output_dataframe = sf::st_as_sf(output_dataframe)
+      output_dataframe = sf::st_as_sf(output_dataframe, coords = c("x", "y"), crs = gdalcubes::srs(data))
 
       message("Output dataframe created!")
     },
