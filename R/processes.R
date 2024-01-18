@@ -761,7 +761,7 @@ reduce_dimension <- Process$new(
       name = "FUN",
       description = "Custom reducer function. If FUN is given, any reducer given in 'reducer' will be ignored. FUN has to be defined as specified in: https://gdalcubes.github.io/source/reference/ref/reduce_time.cube.html#details",
       schema = list(
-        type = "function"
+        type = "string"
       ),
       optional = TRUE
     ),
@@ -794,6 +794,16 @@ reduce_dimension <- Process$new(
       {
         tryCatch(
           {
+
+            # check, if FUN string contains forbidden keywords
+            forbidden_keywords = c("system", "Sys.", "processx")
+
+            if (any(sapply(forbidden_keywords, grepl, FUN)))
+            {
+              message("Forbidden keyword used!")
+              stop()
+            }
+
             # parse and eval function from passed string. THIS IS EXTREMLY UNSAFE!!!!
             # TODO: Do some kind of string sanitazation
             FUN = base::eval(base::parse(text = FUN))
