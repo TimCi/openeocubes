@@ -1582,7 +1582,7 @@ train_model <- Process$new(
 
 predict_model <- Process$new(
   id = "predict_model",
-  description = "Perform a prediction on a datacube based on the given model. This approach extracts each pixel value as a row of a data.frame. This data.frame is then used to predict class values for each pixel. ",
+  description = "Perform a prediction on a datacube based on the given model. This approach extracts each pixel value as a row of a data.frame. This data.frame is then used to predict class values for each pixel. Outputs of this process can only be saved as RDS or NetCDF!",
   categories = as.array("machine-learning", "cubes"),
   summary = "Predict data on datacube based on a data.frame.",
   parameters = list(
@@ -1596,75 +1596,32 @@ predict_model <- Process$new(
     ),
     Parameter$new(
       name = "model_id",
-      description = "Id of the model that should be used for prediction. The model will be searches in the user workspace.",
+      description = "Id of the model that should be used for prediction. The model will be searched in the workspace of openeocubes.",
       schema = list(
         type = "string"
-      )
-    ),
-    Parameter$new(
-      name = "aoi_extend",
-      description = "Spatial extend of the area of interest (aoi) to be used for classification. Has to be in EPSG:3857",
-      schema = list(
-        list(
-          title = "Bounding box",
-          type = "object",
-          subtype = "bounding-box",
-          properties = list(
-            east = list(
-              description = "East (upper right corner, coordinate axis 1).",
-              type = "number"
-            ),
-            west = list(
-              description = "West lower left corner, coordinate axis 1).",
-              type = "number"
-            ),
-            north = list(
-              description = "North (upper right corner, coordinate axis 2).",
-              type = "number"
-            ),
-            south = list(
-              description = "South (lower left corner, coordinate axis 2).",
-              type = "number"
-            )
-          ),
-          required = c("east", "west", "south", "north")
-        )
-      )
-    ),
-    Parameter$new(
-      name = "aoi_crs",
-      description = "CRS of the given AOI",
-      schema = list(
-        type = "numeric"
       )
     )
   ),
   returns = list(
-    description = "Spatial data frame containing the geometry, class and class probability for each pixel",
+    description = "Spatial data frame containing the geometry, class and class confidence for each pixel",
     schema = list(type = "data.frame")
   ),
-  operation = function(data, model_id, aoi_extend, aoi_crs, job) {
+  operation = function(data, model_id, job) {
     # show call stack for debugging
     message("predict_model called...")
 
     message("\nCall parameters: ")
 
+    message("\ndata")
+    print(data)
+
     message("\nmodel_id:")
     message(model_id)
 
-    message("\naoi_extend:")
-    for (name in names(aoi_extend))
-    {
-      message(paste0(name),": ", aoi_extend[name])
-    }
-
-    message("\naoi_crs:")
-    message(aoi_crs)
-
-    xmin = aoi_extend$west
-    ymin = aoi_extend$south
-    xmax = aoi_extend$east
-    ymax = aoi_extend$north
+    xmin = gdalcubes::dimensions(data)$x$low
+    ymin = gdalcubes::dimensions(data)$y$low
+    xmax = gdalcubes::dimensions(data)$x$high
+    ymax = gdalcubes::dimensions(data)$y$high
 
 
 
@@ -1675,8 +1632,7 @@ predict_model <- Process$new(
 
       poly <- aoi_polygon_df |>
         # create sf_point object
-        sf::st_as_sf(coords = c("x", "y"), crs = aoi_crs) |>
-        sf::st_transform(gdalcubes::srs(data)) |>
+        sf::st_as_sf(coords = c("x", "y"), crs = gdalcubes::srs(data)) |>
         sf::st_bbox() |>
         sf::st_as_sfc() |>
         # create sf_polygon object
@@ -1691,8 +1647,7 @@ predict_model <- Process$new(
       stop()
     })
 
-    # mit left oder rigth kann man auf die Rechte oder linbke koordinate des Pixel zugrifen
-    # dann bekommt man ein neues Band mit der Koordinate pro Pixel
+    # add "x" and "y" coords as bands to the cube. Both are the respective barycenter of the pixel.
     data = gdalcubes::apply_pixel(data, c("(left + right) / 2", "(top + bottom) / 2"), names = c("x", "y"), keep_bands = TRUE)
 
 
@@ -1740,8 +1695,6 @@ predict_model <- Process$new(
 
       # get model from user workspace
       model = readRDS(paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds"))
-
-      # TODO: checken, das caret die Reihenfolge im data.frame bewahrt
 
       # predict classes
       predicted_classes = stats::predict(model, newdata = features_filtered)
