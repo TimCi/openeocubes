@@ -1412,7 +1412,11 @@ train_model <- Process$new(
     training_df_filtered = training_df
     training_df_filtered$time = NULL
     training_df_filtered$geometry = NULL
+    # convert numbers to "X<number>" to make valid class names
+    training_df_filtered$class = base::make.names(training_df_filtered$class)
 
+    message("\nclasses in training_df ")
+    print(unique(training_df_filtered$class))
 
     message("\nFeatures in 'training_df': ", nrow(training_df))
 
@@ -1887,6 +1891,7 @@ apply_prediction <- Process$new(
       FUN = function(band_values_vector)
       {
         library(caret)
+        library(stringr)
         library(randomForest)
 
 
@@ -1902,12 +1907,18 @@ apply_prediction <- Process$new(
         named_vector = setNames(band_values_vector, band_names)
 
         # create 1-row df per pixel of the datacube
-        band_value_df = as.data.frame(t(named_vector))
+        band_value_df = named_vector |> t() |> as.data.frame()
 
 
         tryCatch({
           predicted_class = stats::predict(model, newdata = band_value_df)
           class_confidence = stats::predict(model, newdata = band_value_df, type = "prob")
+
+          # parse Integer value from string
+          predicted_class <- predicted_class |>
+            base::as.character() |>
+            stringr::str_extract_all("\\d+") |>
+            base::as.numeric()
 
           # determine confidence value for the classified class
           highest_class_confidence = base::apply(class_confidence, 1, base::max)
