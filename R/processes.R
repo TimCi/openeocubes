@@ -1412,7 +1412,11 @@ train_model <- Process$new(
     training_df_filtered = training_df
     training_df_filtered$time = NULL
     training_df_filtered$geometry = NULL
+    # convert numbers to "X<number>" to make valid class names
+    training_df_filtered$class = base::make.names(training_df_filtered$class)
 
+    message("\nclasses in training_df ")
+    print(unique(training_df_filtered$class))
 
     message("\nFeatures in 'training_df': ", nrow(training_df))
 
@@ -1582,7 +1586,7 @@ train_model <- Process$new(
 
 predict_model <- Process$new(
   id = "predict_model",
-  description = "Perform a prediction on a datacube based on the given model. This approach extracts each pixel value as a row of a data.frame. This data.frame is then used to predict class values for each pixel. ",
+  description = "Perform a prediction on a datacube based on the given model. This approach extracts each pixel value as a row of a data.frame. This data.frame is then used to predict class values for each pixel. Outputs of this process can only be saved as RDS or NetCDF!",
   categories = as.array("machine-learning", "cubes"),
   summary = "Predict data on datacube based on a data.frame.",
   parameters = list(
@@ -1596,103 +1600,49 @@ predict_model <- Process$new(
     ),
     Parameter$new(
       name = "model_id",
-      description = "Id of the model that should be used for prediction. The model will be searches in the user workspace.",
+      description = "Id of the model that should be used for prediction. The model will be searched in the workspace of openeocubes.",
       schema = list(
         type = "string"
-      )
-    ),
-    Parameter$new(
-      name = "aoi_extend",
-      description = "Spatial extend of the area of interest (aoi) to be used for classification. Has to be in EPSG:3857",
-      schema = list(
-        list(
-          title = "Bounding box",
-          type = "object",
-          subtype = "bounding-box",
-          properties = list(
-            east = list(
-              description = "East (upper right corner, coordinate axis 1).",
-              type = "number"
-            ),
-            west = list(
-              description = "West lower left corner, coordinate axis 1).",
-              type = "number"
-            ),
-            north = list(
-              description = "North (upper right corner, coordinate axis 2).",
-              type = "number"
-            ),
-            south = list(
-              description = "South (lower left corner, coordinate axis 2).",
-              type = "number"
-            )
-          ),
-          required = c("east", "west", "south", "north")
-        )
-      )
-    ),
-    Parameter$new(
-      name = "aoi_crs",
-      description = "CRS of the given AOI",
-      schema = list(
-        type = "numeric"
       )
     )
   ),
   returns = list(
-    description = "Spatial data frame containing the geometry, class and class probability for each pixel",
+    description = "Spatial data frame containing the geometry, class and class confidence for each pixel",
     schema = list(type = "data.frame")
   ),
-  operation = function(data, model_id, aoi_extend, aoi_crs, job) {
+  operation = function(data, model_id, job) {
     # show call stack for debugging
     message("predict_model called...")
 
     message("\nCall parameters: ")
 
+    message("\ndata")
+    print(data)
+
     message("\nmodel_id:")
     message(model_id)
 
-    message("\naoi_extend:")
-    for (name in names(aoi_extend))
-    {
-      message(paste0(name),": ", aoi_extend[name])
-    }
-
-    message("\naoi_crs:")
-    message(aoi_crs)
-
-    xmin = aoi_extend$west
-    ymin = aoi_extend$south
-    xmax = aoi_extend$east
-    ymax = aoi_extend$north
+    xmin = gdalcubes::dimensions(data)$x$low
+    ymin = gdalcubes::dimensions(data)$y$low
+    xmax = gdalcubes::dimensions(data)$x$high
+    ymax = gdalcubes::dimensions(data)$y$high
 
 
 
     tryCatch({
-      message("\nCreate AOI Polygons...")
+      message("\nCreate AOI Polygon...")
 
       aoi_polygon_df = data.frame(x = c(xmin,xmax), y = c(ymin ,ymax))
 
       poly <- aoi_polygon_df |>
         # create sf_point object
-        sf::st_as_sf(coords = c("x", "y"), crs = aoi_crs) |>
-        sf::st_transform(gdalcubes::srs(data)) |>
+        sf::st_as_sf(coords = c("x", "y"), crs = gdalcubes::srs(data)) |>
         sf::st_bbox() |>
         sf::st_as_sfc() |>
         # create sf_polygon object
         sf::st_as_sf()
 
-
-      # # get cube resolution
-      # cube_resolution = gdalcubes::dimensions(data)$x$pixel_size
-
-      # # grid to rasterize the aoi polygon
-      # grid = stars::st_as_stars(sf::st_bbox(poly), dx = cube_resolution, dy = cube_resolution)
-
-      # # aoi polygon rastern (in ein polygon pro pixel)
-      # aoi_points = poly |> stars::st_rasterize(grid) |> sf::st_as_sf()
-
-      message("AOI Polygons created!")
+      message("AOI Polygon created!")
     },
     error = function(err)
     {
@@ -1701,8 +1651,7 @@ predict_model <- Process$new(
       stop()
     })
 
-    # mit left oder rigth kann man auf die Rechte oder linbke koordinate des Pixel zugrifen
-    # dann bekommt man ein neues Band mit der Koordinate pro Pixel
+    # add "x" and "y" coords as bands to the cube. Both are the respective barycenter of the pixel.
     data = gdalcubes::apply_pixel(data, c("(left + right) / 2", "(top + bottom) / 2"), names = c("x", "y"), keep_bands = TRUE)
 
 
@@ -1725,30 +1674,6 @@ predict_model <- Process$new(
       stop()
     })
 
-
-    # tryCatch({
-    #   message("\nMerge data.frame and aoi_points...")
-
-    #   # FID for later merge
-    #   aoi_points$FID = rownames(aoi_points)
-
-    #   # remove old ID
-    #   aoi_points$ID = NULL
-
-    #   features = base::merge(features, aoi_points, by = "FID")
-
-    #   # reset FID to prevent mismatch after merge
-    #   features$FID = rownames(features)
-
-    #   message("Merge completed!")
-    # },
-    # error = function(err)
-    # {
-    #   message("An Error occured!")
-    #   message(toString(err))
-    #   stop()
-    # })
-
     tryCatch({
       message("\nPreparing prediction dataset...")
 
@@ -1757,6 +1682,8 @@ predict_model <- Process$new(
       features_filtered$time = NULL
       features_filtered$FID = NULL
       features_filtered$geometry = NULL
+      features_filtered$x = NULL
+      features_filtered$y = NULL
 
       message("Data preperation finished!")
     },
@@ -1773,17 +1700,14 @@ predict_model <- Process$new(
       # get model from user workspace
       model = readRDS(paste0(Session$getConfig()$workspace.path, "/", model_id, ".rds"))
 
-
-      # TODO: checken, das caret die Reihenfolge im data.frame bewahrt
-
       # predict classes
       predicted_classes = stats::predict(model, newdata = features_filtered)
 
       # get class probalilities
-      prediction_accuracys = stats::predict(model, newdata = features_filtered, type = "prob")
+      prediction_confidence = stats::predict(model, newdata = features_filtered, type = "prob")
 
       # get column with only the highest class prob
-      max_accuracy_per_pixel = apply(prediction_accuracys, 1, base::max)
+      max_confidence_per_pixel = apply(prediction_confidence, 1, base::max)
 
       message("Prediction completed!")
     },
@@ -1806,11 +1730,12 @@ predict_model <- Process$new(
 
       output_dataframe$FID = features$FID
       output_dataframe$class = predicted_classes
-      output_dataframe$class_accuracys = max_accuracy_per_pixel
-      output_dataframe$geometry = features$geometry
+      output_dataframe$class_confidence = max_confidence_per_pixel
+      output_dataframe$x = features$x
+      output_dataframe$y = features$y
 
       # convert output to spatial dataframe
-      output_dataframe = sf::st_as_sf(output_dataframe)
+      output_dataframe = sf::st_as_sf(output_dataframe, coords = c("x", "y"), crs = gdalcubes::srs(data))
 
       message("Output dataframe created!")
     },
@@ -1966,6 +1891,7 @@ apply_prediction <- Process$new(
       FUN = function(band_values_vector)
       {
         library(caret)
+        library(stringr)
         library(randomForest)
 
 
@@ -1981,12 +1907,18 @@ apply_prediction <- Process$new(
         named_vector = setNames(band_values_vector, band_names)
 
         # create 1-row df per pixel of the datacube
-        band_value_df = as.data.frame(t(named_vector))
+        band_value_df = named_vector |> t() |> as.data.frame()
 
 
         tryCatch({
           predicted_class = stats::predict(model, newdata = band_value_df)
           class_confidence = stats::predict(model, newdata = band_value_df, type = "prob")
+
+          # parse Integer value from string
+          predicted_class <- predicted_class |>
+            base::as.character() |>
+            stringr::str_extract_all("\\d+") |>
+            base::as.numeric()
 
           # determine confidence value for the classified class
           highest_class_confidence = base::apply(class_confidence, 1, base::max)

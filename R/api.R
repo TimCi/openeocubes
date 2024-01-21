@@ -225,6 +225,10 @@ NULL
 
               base::saveRDS(job$results, file)
             }
+            else
+            {
+              throwError("FormatUnsupported")
+            }
           }
           else
           {
