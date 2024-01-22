@@ -10,7 +10,7 @@ test_that("loading netCDF cube works", {
   createSessionInstance(config)
 
   # try loading the datacube
-  datacube = load_netCDF_cube_opp("cube")
+  datacube = spsUtil::quiet(load_netCDF_cube_opp("cube"))
 
   comparioson_datacube = gdalcubes::ncdf_cube(test_path("testData", "cube.nc"))
 
