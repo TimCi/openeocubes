@@ -1,106 +1,150 @@
+---
+editor_options: 
+  markdown: 
+    wrap: 72
+---
 
-# OpenEOcubes: openEO Compliant Lightweight R Platform for Processing Satellite Image Time Series 
+# OpenEOcubes: openEO Compliant Lightweight R Platform for Processing Satellite Image Time Series
 
-The service integrates STAC API (using Rstac package), the OpenEO standardized API, and data cubes concepts (using gdalcubes R package) to be a lightweight platform to enable analysis of time series satellite images via OpenEO Compliant RESTful endpoints using R-Client. It also supports users to run their custom R functions.
+The service integrates STAC API (using Rstac package), the OpenEO
+standardized API, and data cubes concepts (using gdalcubes R package) to
+be a lightweight platform to enable analysis of time series satellite
+images via OpenEO Compliant RESTful endpoints using R-Client. It also
+supports users to run their custom R functions.
 
-####  Motivation for the platform:
-The service tries to improve on the limitations of  established EO data management platforms like Google Earth Engine and Sentinel Hub by supporting:
-* Reproducibility of Science
-* Extensibility
-* Infrastructure Replicability
-* Open Governance
-* No Need for User Management
-* User-Defined R Functions
-* Flexibility - Custom CRS, and Quick Resampling of Massive EO Data
+#### Motivation for the platform:
 
+The service tries to improve on the limitations of established EO data
+management platforms like Google Earth Engine and Sentinel Hub by
+supporting: \* Reproducibility of Science \* Extensibility \*
+Infrastructure Replicability \* Open Governance \* No Need for User
+Management \* User-Defined R Functions \* Flexibility - Custom CRS, and
+Quick Resampling of Massive EO Data
 
 ![](docs/openeocubes.png)
 
-After processing the data , one can  download and explore on open source tools like QGIS, R, Python, etc.
+After processing the data , one can download and explore on open source
+tools like QGIS, R, Python, etc.
 
+#### Future developments:
 
-####  Future developments:
-Geospatial Machine Learning APIs for time-series EO Data:
-* ML APIs e.g. Random Forest, SVM, XGBoost, etc.
-* DL APIs e.g. TempCNN, ResNet, etc.
+Geospatial Machine Learning APIs for time-series EO Data: \* ML APIs
+e.g. Random Forest, SVM, XGBoost, etc. \* DL APIs e.g. TempCNN, ResNet,
+etc.
 
-Currently PoC is being worked on at [this reposity](https://github.com/Open-Earth-Monitor/openeosits) on the  [Open Earth Monitor Cyberinfrastructure](https://earthmonitor.org/) EU funded project.
-## Easy Deployment from DockerHub
-Assuming you have Docker installed. This is the easiest approach.
-You can get a hosted Docker image of the platform on DockerHub
-https://hub.docker.com/r/brianpondi/openeocubes
+Currently PoC is being worked on at [this
+reposity](https://github.com/Open-Earth-Monitor/openeosits) on the [Open
+Earth Monitor Cyberinfrastructure](https://earthmonitor.org/) EU funded
+project. \## Easy Deployment from DockerHub Assuming you have Docker
+installed. This is the easiest approach. You can get a hosted Docker
+image of the platform on DockerHub
+<https://hub.docker.com/r/brianpondi/openeocubes>
 
 ### Running the container
-It is highly recommended to deploy the service on an AWS EC2 machine that is in us-west-2 region (Oregon) as that is the data centre where the Earth Observation(EO) datasets found in AWS STAC search are stored. This enables the processing of EO data from the source so that the network latency between the platform and data is as low as possible hence cheaper. You can expose port 8000 of the EC2 instance to deploy and communicate with the service.
-```bash
+
+It is highly recommended to deploy the service on an AWS EC2 machine
+that is in us-west-2 region (Oregon) as that is the data centre where
+the Earth Observation(EO) datasets found in AWS STAC search are stored.
+This enables the processing of EO data from the source so that the
+network latency between the platform and data is as low as possible
+hence cheaper. You can expose port 8000 of the EC2 instance to deploy
+and communicate with the service.
+
+``` bash
 docker run -p 8000:8000  --env AWSHOST=<AWS-IPv4-ADDRESS>  brianpondi/openeocubes
 ```
 
-For light tasks and processes you can host the service on pc and therefore you don't need AWS IPv4 Address
+For light tasks and processes you can host the service on pc and
+therefore you don't need AWS IPv4 Address
 
-```bash
+``` bash
 docker run -p 8000:8000  brianpondi/openeocubes
 ```
 
 ## Easy Deployment with Docker
+
 If you want to change the source code then this approach is recommended.
 You first need to clone the repository via this command:
 
-```bash
+``` bash
 git clone https://github.com/PondiB/openeocubes.git
 ```
 
 then you can change to that directory
 
-```bash
+``` bash
 cd openeocubes
 ```
 
-
-
 Run it :
 
-```bash
+``` bash
 docker-compose up
 ```
 
 Run in detached mode :
 
-```bash
+``` bash
 docker-compose up -d
 ```
 
 Shutting it down:
 
-```bash
+``` bash
 docker-compose down
 ```
 
-Force restart  and rebuild:
+Force restart and rebuild:
 
-```bash
+``` bash
 docker-compose up --build --force-recreate --no-deps -d
 ```
 
 If there are new changes on the images or Dockerfiles:
-```bash
-docker-compose build --no-cache && docker-compose up
 
+``` bash
+docker-compose build --no-cache && docker-compose up
 ```
 
 ## Development Notes:
-While developing, you can skip rebuilding the docker container everytime. Instead you can run the server locally. To run this server locally, you need RTools4.0. For easier setup, please open "openeocubes.Rproj". Here every build tool is already set up and you can just run "Rscript startLocal.R" inside this directory.
 
-This will compile this Repository as a R Package and start the server.
+While developing, you can skip rebuilding the docker container
+everytime. Instead you can run the server locally. To run this server
+locally, you need RTools4.0. and R \>=4.3. For easier setup, please open
+"openeocubes.Rproj". Here every build tool is already set up and you can
+just run "Rscript startLocal.R" inside this directory (you might need to
+install RTools4.0).
+
+This will compile this Repository as a R Package, run tests and start
+the server.
 
 The script "statLocal.R" is not intended to be used on an AWS Instance.
 
+### Testing this package:
+
+For testing "testthat" is used. All test files are stored in
+"openeocubes/tests". The tests only cover the functions that are wrapped
+inside a "Process" class. Each of the Processes of "openeocubes" have their
+own .R file together with the corresponding function object. Those
+function objects are also exposed with the namespace of "openeocubes".
+
+To run tests for this package either use:
+
+``` r
+testthat::test_file("path/to/file.R")
+```
+
+or start the server locally with `startLocal.R`. This will run all tests
+after compiling the package.
+
 ## Getting Started:
 
-### Example 1:  NDVI Script in R-Studio using OpenEO R-Client
-Using openeo client version 1.3.0, the R scripts provided below calculate a 1-year period NDVI in a section of Amazonia in Brazil. 
+### Example 1: NDVI Script in R-Studio using OpenEO R-Client
 
-```bash
+Using openeo client version 1.3.0, the R scripts provided below
+calculate a 1-year period NDVI in a section of Amazonia in Brazil.
+
+``` bash
 library(openeo)
 
 # connect  to the back-end when deployed locally
@@ -158,18 +202,21 @@ end.time <- Sys.time()
 time.taken <- end.time - start.time
 time.taken
 print("End of processes")
-
 ```
 
 Visualization of the output from the above process:
 
 ![NDVI in Amazonia](docs/amazoniandvi.png)
 
+### Example 2: BFAST change detection in R-Studio using OpenEO R-Client
 
-### Example 2:  BFAST change detection in R-Studio using OpenEO R-Client
-Using openeo client version 1.3.0, the R scripts provided below has a user-defined function that uses bfast library to monitor changes on time series of Sentinel-2 imagery from 2016 to 2020. The study area is the region around the new Berlin-Brandenburg Tesla Gigafactory. You can run the  code on your R-studio. 
+Using openeo client version 1.3.0, the R scripts provided below has a
+user-defined function that uses bfast library to monitor changes on time
+series of Sentinel-2 imagery from 2016 to 2020. The study area is the
+region around the new Berlin-Brandenburg Tesla Gigafactory. You can run
+the code on your R-studio.
 
-```bash
+``` bash
 library(openeo)
 
 # connect  to the back-end when deployed locally
@@ -245,7 +292,6 @@ end.time <- Sys.time()
 time.taken <- end.time - start.time
 time.taken
 print("End of processes")
-
 ```
 
 Visualization of the output from the above process:
