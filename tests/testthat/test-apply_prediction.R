@@ -6,9 +6,8 @@ test_that("apply prediction works", {
   # set workspace for testing
   config$workspace.path = paste0(getwd(),"/", test_path("testData"))
 
-  # this silently return "Session"
+  # this silently returns "Session"
   createSessionInstance(config)
-
 
   expected_bands = c("predicted_class", "class_confidence")
   expected_classes = c("apply_pixel_cube", "cube", "xptr")
