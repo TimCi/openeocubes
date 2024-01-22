@@ -44,8 +44,13 @@ Collate:
     'Job-class.R'
     'ProcessGraph-class.R'
     'SessionConfig-Class.R'
+    'apply_prediction.R'
     'error.R'
+    'fill_missing_values.R'
     'load_collection.R'
+    'load_netCDF_cube.R'
+    'predict_model.R'
+    'train_model.R'
 Depends:
     R (>= 4.3.0)
 Suggests: 
