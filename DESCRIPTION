@@ -24,7 +24,9 @@ Imports:
     sf,
     useful,
     gdalcubes,
-    rstac
+    rstac,
+    caret,
+    randomForest
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.2.3
 Collate: 
@@ -43,5 +45,9 @@ Collate:
     'ProcessGraph-class.R'
     'SessionConfig-Class.R'
     'error.R'
+    'load_collection.R'
 Depends:
     R (>= 4.3.0)
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3
