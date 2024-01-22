@@ -55,7 +55,6 @@ apply_prediction_opp = function(data, model_id, keep_bands = FALSE, job) {
       library(stringr)
       library(randomForest)
 
-
       # load tempdir path from Global Env, to ensure its the same as in the process above
       tmp = Sys.getenv("TEMP_DIR")
       message("Tempdir in FUN: ", tmp)
@@ -69,7 +68,6 @@ apply_prediction_opp = function(data, model_id, keep_bands = FALSE, job) {
 
       # create 1-row df per pixel of the datacube
       band_value_df = named_vector |> t() |> as.data.frame()
-
 
       tryCatch({
         predicted_class = stats::predict(model, newdata = band_value_df)
@@ -91,7 +89,8 @@ apply_prediction_opp = function(data, model_id, keep_bands = FALSE, job) {
         return(c(NA, NA))
       })
 
-    })
+    },
+    keep_bands = keep_bands)
 
 
   message("\nDatacube: ")
