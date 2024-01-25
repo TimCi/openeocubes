@@ -24,7 +24,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
-    stop(toString(err))
+    stop("couldn't load training polygons!")
   })
 
   message("\nhyperparameters: ")
@@ -47,6 +47,12 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   print(model_id) # to also show "NULL"
 
 
+  if (!is.numeric(labeled_polygons$class))
+  {
+    stop("class labels need to be numeric")
+  }
+
+
   # obvios boolean check for mor readibility
   if (save_model == TRUE && is.null(model_id))
   {
@@ -66,7 +72,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
-    stop(toString(err))
+    stop("Features couldn't be extracted")
   })
 
   # add FID for merge with 'features'
@@ -84,7 +90,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
-    stop(toString(err))
+    stop("Merging data.frames failed")
   })
 
   # make copy to filter out values not needed for training
@@ -131,7 +137,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
     {
       message("An Error occured!")
       message(toString(err))
-      stop(toString(err))
+      stop("Reducing Features failed")
     })
   }
 
@@ -154,7 +160,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
-    stop(toString(err))
+    stop("Splitting training data failed")
   })
 
   # build specific model given by "model_type"
@@ -199,7 +205,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
       {
         message("An Error occured!")
         message(toString(err))
-        stop(toString(err))
+        stop("model training failed")
       })
 
     }
@@ -239,7 +245,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
       {
         message("An Error occured!")
         message(toString(err))
-        stop(toString(err))
+        stop("model training failed")
       })
     }
   }
@@ -258,7 +264,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
     {
       message("An Error occured!")
       message(toString(err))
-      stop(toString(err))
+      stop("model saving failed")
     })
   }
 
@@ -269,7 +275,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
 #' train_model
 train_model <- Process$new(
   id = "train_model",
-  description = "Train a machine learning algorithm based on the provided training data on satellite imagery gathered from a datacube.",
+  description = "Train a machine learning algorithm based on the provided training data on satellite imagery gathered from a datacube. This process will convert integer class values into factors by prefixing a 'X'. ",
   categories = as.array("machine-learning", "cubes"),
   summary = "train machine learning model.",
   parameters = list(
