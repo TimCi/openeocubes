@@ -304,7 +304,7 @@ train_model <- Process$new(
     ),
     Parameter$new(
       name = "hyperparameters",
-      description = "List of Hyperparameters used for the model",
+      description = "List of Hyperparameters used for the model. If no hyperparameters are passed, the algorithm will tune the hyperparameters by random grid search and 10-times-10-fold-crossvalidation. This may take very long!",
       schema = list(
         type = "list"
       ),
@@ -330,7 +330,7 @@ train_model <- Process$new(
   ),
   returns = list(
     description = "The trained model.",
-    schema = list(type = "object", subtype = "caret-ml-model")
+    schema = list(type = "object", subtype = list("train", "train.formula"))
   ),
   operation = train_model_opp
 )
