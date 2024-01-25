@@ -24,6 +24,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
+    stop(toString(err))
   })
 
   message("\nhyperparameters: ")
@@ -50,7 +51,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   if (save_model == TRUE && is.null(model_id))
   {
     message("If the model should be safed, a model_id needs to be given!")
-    stop("")
+    stop("If the model should be safed, a model_id needs to be given!")
   }
 
   tryCatch({
@@ -65,6 +66,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
+    stop(toString(err))
   })
 
   # add FID for merge with 'features'
@@ -82,6 +84,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
+    stop(toString(err))
   })
 
   # make copy to filter out values not needed for training
@@ -128,6 +131,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
     {
       message("An Error occured!")
       message(toString(err))
+      stop(toString(err))
     })
   }
 
@@ -150,6 +154,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
+    stop(toString(err))
   })
 
   # build specific model given by "model_type"
@@ -168,7 +173,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
       if (!all(c("mtry", "ntree") %in% names(hyperparameters)))
       {
         message("'hyperparameters' has to contain 'mtry' and 'ntree'!")
-        stop("")
+        stop("'hyperparameters' has to contain 'mtry' and 'ntree'!")
       }
 
       message("hyperparameters for Random Forest checked!")
@@ -194,6 +199,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
       {
         message("An Error occured!")
         message(toString(err))
+        stop(toString(err))
       })
 
     }
@@ -233,6 +239,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
       {
         message("An Error occured!")
         message(toString(err))
+        stop(toString(err))
       })
     }
   }
@@ -251,6 +258,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
     {
       message("An Error occured!")
       message(toString(err))
+      stop(toString(err))
     })
   }
 
