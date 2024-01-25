@@ -27,7 +27,7 @@ apply_prediction_opp = function(data, model_id, keep_bands = FALSE, job) {
   {
     message("An Error occured!")
     message(toString(err))
-    stop()
+    stop("No Model found!")
   })
 
   # get band names for to later create a data.frame
@@ -86,7 +86,7 @@ apply_prediction_opp = function(data, model_id, keep_bands = FALSE, job) {
       },
       error = function(err)
       {
-        return(c(NA, NA))
+        stop("Error in apply_pixel!")
       })
 
     },
@@ -103,7 +103,7 @@ apply_prediction_opp = function(data, model_id, keep_bands = FALSE, job) {
 #' apply_prediction
 apply_prediction <- Process$new(
   id = "apply_prediction",
-  description = "Apply a machine-learning model on each pixel of the datacube. This creates 2 new bands in the cube containing the predicted classes per pixel and the propability of the predicted class (class accuracy). Bands of the source cube can optionally be included.",
+  description = "Apply a machine-learning model on each pixel of the datacube. This creates 2 new bands in the cube containing the predicted classes per pixel and the propability of the predicted class (class confidence). Bands of the source cube can optionally be included. This Algorithm will only save integer values in the datacube. If the levels of the model are factor values without an integer part like: 'expl', gdalcubes will assign a integer value instead. Therefore it is advised to provide a model with levels in the form of 'X1' 'X2', ..., 'Xn'.",
   categories = as.array("cubes", "machine-learning"),
   summary = "Apply a machine-learning based prediction on a datacube",
   parameters = list(
