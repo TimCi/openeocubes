@@ -89,7 +89,6 @@ load_collection_opp = function(id, spatial_extent, crs = 4326, temporal_extent, 
   })
 
 
-
   message(gdalcubes::dimensions(cube))
 
 
