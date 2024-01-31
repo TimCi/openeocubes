@@ -19,13 +19,12 @@ fill_missing_values_opp = function(data, method, job) {
 
     message("NA values filled!")
 
-
   },
   error = function(err)
   {
     message("An Error occured!")
     message(toString(err))
-    stop()
+    stop(toString(err$message))
   })
 
   return(data)

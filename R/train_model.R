@@ -24,6 +24,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
+    stop("couldn't load training polygons!")
   })
 
   message("\nhyperparameters: ")
@@ -46,11 +47,17 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   print(model_id) # to also show "NULL"
 
 
+  if (!is.numeric(labeled_polygons$class))
+  {
+    stop("class labels need to be numeric")
+  }
+
+
   # obvios boolean check for mor readibility
   if (save_model == TRUE && is.null(model_id))
   {
     message("If the model should be safed, a model_id needs to be given!")
-    stop("")
+    stop("If the model should be safed, a model_id needs to be given!")
   }
 
   tryCatch({
@@ -65,6 +72,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
+    stop("Features couldn't be extracted")
   })
 
   # add FID for merge with 'features'
@@ -82,6 +90,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
+    stop("Merging data.frames failed")
   })
 
   # make copy to filter out values not needed for training
@@ -128,6 +137,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
     {
       message("An Error occured!")
       message(toString(err))
+      stop("Reducing Features failed")
     })
   }
 
@@ -150,6 +160,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
   {
     message("An Error occured!")
     message(toString(err))
+    stop("Splitting training data failed")
   })
 
   # build specific model given by "model_type"
@@ -168,7 +179,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
       if (!all(c("mtry", "ntree") %in% names(hyperparameters)))
       {
         message("'hyperparameters' has to contain 'mtry' and 'ntree'!")
-        stop("")
+        stop("'hyperparameters' has to contain 'mtry' and 'ntree'!")
       }
 
       message("hyperparameters for Random Forest checked!")
@@ -194,6 +205,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
       {
         message("An Error occured!")
         message(toString(err))
+        stop("model training failed")
       })
 
     }
@@ -233,6 +245,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
       {
         message("An Error occured!")
         message(toString(err))
+        stop("model training failed")
       })
     }
   }
@@ -251,6 +264,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
     {
       message("An Error occured!")
       message(toString(err))
+      stop("model saving failed")
     })
   }
 
@@ -261,7 +275,7 @@ train_model_opp = function(data, model_type, labeled_polygons, hyperparameters =
 #' train_model
 train_model <- Process$new(
   id = "train_model",
-  description = "Train a machine learning algorithm based on the provided training data on satellite imagery gathered from a datacube.",
+  description = "Train a machine learning algorithm based on the provided training data on satellite imagery gathered from a datacube. This process will convert integer class values into factors by prefixing a 'X'. ",
   categories = as.array("machine-learning", "cubes"),
   summary = "train machine learning model.",
   parameters = list(
@@ -290,7 +304,7 @@ train_model <- Process$new(
     ),
     Parameter$new(
       name = "hyperparameters",
-      description = "List of Hyperparameters used for the model",
+      description = "List of Hyperparameters used for the model. If no hyperparameters are passed, the algorithm will tune the hyperparameters by random grid search and 10-times-10-fold-crossvalidation. This may take very long!",
       schema = list(
         type = "list"
       ),
@@ -316,7 +330,7 @@ train_model <- Process$new(
   ),
   returns = list(
     description = "The trained model.",
-    schema = list(type = "object", subtype = "caret-ml-model")
+    schema = list(type = "object", subtype = list("train", "train.formula"))
   ),
   operation = train_model_opp
 )

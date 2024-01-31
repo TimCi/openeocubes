@@ -1,8 +1,3 @@
----
-editor_options: 
-  markdown: 
-    wrap: 72
----
 
 # OpenEOcubes: openEO Compliant Lightweight R Platform for Processing Satellite Image Time Series
 

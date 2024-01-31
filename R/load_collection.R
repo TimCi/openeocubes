@@ -38,56 +38,55 @@ load_collection_opp = function(id, spatial_extent, crs = 4326, temporal_extent, 
     message("....transformed to 4326")
   }
 
-
   tryCatch(
-    {
-      # connect to STAC API using rstac and get satellite data
-      message("STAC API call.....")
-      stac_object <- rstac::stac("https://earth-search.aws.element84.com/v0")
-      items <- stac_object %>%
-        stac_search(
-          collections = id,
-          bbox = c(xmin_stac, ymin_stac, xmax_stac, ymax_stac),
-          datetime = time_range,
-          limit = 10000
-        ) %>%
-        post_request() %>%
-        items_fetch()
+  {
+    # connect to STAC API using rstac and get satellite data
+    message("STAC API call.....")
+    stac_object <- rstac::stac("https://earth-search.aws.element84.com/v0")
+    items <- stac_object %>%
+      stac_search(
+        collections = id,
+        bbox = c(xmin_stac, ymin_stac, xmax_stac, ymax_stac),
+        datetime = time_range,
+        limit = 10000
+      ) %>%
+      post_request() %>%
+      items_fetch()
 
-      # create image collection from STAC items features
-      img.col <- gdalcubes::stac_image_collection(items$features,
-                                                  property_filter =
-                                                    function(x) {
-                                                      x[["eo:cloud_cover"]] < 30
-                                                    }
+    # create image collection from STAC items features
+    img.col <- gdalcubes::stac_image_collection(items$features,
+                                                property_filter =
+                                                  function(x) {
+                                                    x[["eo:cloud_cover"]] < 30
+                                                  }
+    )
+
+    # Define cube view with bi weekly aggregation
+    crs <- c("EPSG", crs)
+    crs <- paste(crs, collapse = ":")
+    v.overview <- gdalcubes::cube_view(
+      srs = crs, dx = resolution, dy = resolution, dt = "P15D",
+      aggregation = "median", resampling = "average",
+      extent = list(
+        t0 = t0, t1 = t1,
+        left = xmin, right = xmax,
+        top = ymax, bottom = ymin
       )
+    )
 
-      # Define cube view with bi weekly aggregation
-      crs <- c("EPSG", crs)
-      crs <- paste(crs, collapse = ":")
-      v.overview <- gdalcubes::cube_view(
-        srs = crs, dx = resolution, dy = resolution, dt = "P15D",
-        aggregation = "median", resampling = "average",
-        extent = list(
-          t0 = t0, t1 = t1,
-          left = xmin, right = xmax,
-          top = ymax, bottom = ymin
-        )
-      )
+    # data cube creation
+    cube <- gdalcubes::raster_cube(img.col, v.overview)
 
-      # data cube creation
-      cube <- gdalcubes::raster_cube(img.col, v.overview)
-
-      if (!is.null(bands)) {
-        cube <- gdalcubes::select_bands(cube, bands)
-      }
-    },
-    error= function(err)
-    {
-      message(toString(err))
-      stop(err$message)
+    if (!is.null(bands)) {
+      cube <- gdalcubes::select_bands(cube, bands)
     }
-  )
+  },
+  error = function(err)
+  {
+    message("An Error occured!")
+    message(toString(err))
+    stop("No Image Found")
+  })
 
 
   message(gdalcubes::dimensions(cube))

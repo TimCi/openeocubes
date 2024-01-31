@@ -165,9 +165,14 @@ NULL
       job = newJob$run()
       format = job$output
 
+      if(job$status == "error")
+      {
+        # throw error stored in job$results
+        stop(job$results)
+      }
+
       # Only support naming short names of output formats do remove redundant code
       # to add a new supported class, just add a new else if Statement in the desired file format
-
       message("\nStart file saving...")
 
       # just one try catch were all evaluations happen
@@ -225,10 +230,6 @@ NULL
 
               base::saveRDS(job$results, file)
             }
-            else
-            {
-              throwError("FormatUnsupported")
-            }
           }
           else
           {
@@ -239,6 +240,7 @@ NULL
         {
           message('An Error Occurred.')
           message(toString(error))
+          stop("FormatUnsupported")
         },
         warning = function(warning) {
           message('A Warning Occurred')
