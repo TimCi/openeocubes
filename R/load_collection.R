@@ -65,7 +65,7 @@ load_collection_opp = function(id, spatial_extent, crs = 4326, temporal_extent, 
     crs <- c("EPSG", crs)
     crs <- paste(crs, collapse = ":")
     v.overview <- gdalcubes::cube_view(
-      srs = crs, dx = resolution, dy = resolution, dt = "P15D",
+      srs = crs, dx = resolution, dy = resolution, dt = "P1M",
       aggregation = "median", resampling = "average",
       extent = list(
         t0 = t0, t1 = t1,
