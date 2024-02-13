@@ -85,7 +85,7 @@ load_collection_opp = function(id, spatial_extent, crs = 4326, temporal_extent, 
   {
     message("An Error occured!")
     message(toString(err))
-    stop("No Image Found")
+    stop(err$message)
   })
 
 
